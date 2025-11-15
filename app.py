@@ -11,8 +11,8 @@ from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSO
 import os
 
 llm = ChatOpenAI(
-    # FINAL FIX: Change model name to OpenRouter's preferred format
-    model="openai/gpt-3.5-turbo",
+    # FINAL FIX: Swapping to a reliable OpenRouter model to resolve APIStatusError
+    model="mistralai/mistral-7b-instruct-v0.2",
     api_key=os.getenv("OPENAI_API_KEY"),
     openai_api_base="https://openrouter.ai/api/v1" 
 )
