@@ -1,66 +1,78 @@
 from dotenv import load_dotenv
-load_dotenv()
 import streamlit as st
+import os
+import json
 from segment import segment_image
 from forecast import forecast_vitals
 from report import TBIReport 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-# from langchain_core.output_parsers import StrOutputParser # <-- DELETED: Not needed for JSON structure
-# from langchain_core.output_parsers import JsonOutputParser # <-- DELETED: Using LLM built-in structure
-import os
+from langchain_core.output_parsers import StrOutputParser 
 
-# --- LLM and Structured Output Setup ---
+# Load environment variables (OPENAI_API_KEY and OPENAI_API_BASE must be set for Agent Router)
+load_dotenv()
+
+# --- LLM and Output Setup ---
 
 llm = ChatOpenAI(
-    model="mistralai/mistral-7b-instruct", 
+    # FINAL FIX: Using the highly capable, supported model from your Agent Router list.
+    model="claude-sonnet-4-5-20250929", 
     api_key=os.getenv("OPENAI_API_KEY")    
 )
 
-# CRITICAL FIX: Use with_structured_output directly on the LLM
-# This is the modern, robust way to get Pydantic JSON from the LLM
-structured_llm = llm.with_structured_output(TBIReport)
+# Use StrOutputParser to reliably get the raw JSON string text, avoiding Pydantic parsing issues.
+parser = StrOutputParser() 
 
-prompt = ChatPromptTemplate.from_messages( 
-    [
-        # Removed format_instructions from the system message as the LLM handles it now
-        ("system", "You are a specialized Military Medical AI assistant. Your task is to analyze the provided TBI data and generate a structured clinical report in JSON format, strictly following the provided schema."),
-        ("human", "Analyze the following TBI data and provide a detailed report:\nBrain Anomaly: {anomaly}%\nRisk Level: {risk}\nForecast: {forecast}"),
-    ]
-) # Removed the .partial(format_instructions...) call
+# Define the prompt to explicitly ask for JSON output and provide the Pydantic schema text
+prompt_template = """
+You are a specialized Military Medical AI assistant. Your task is to analyze the provided TBI data and generate a structured clinical report in JSON format that STRICTLY follows this Python Pydantic Schema structure:
 
-# The chain now produces a structured TBIReport object directly
-chain = prompt | structured_llm
+{pydantic_schema}
+
+Analyze the following TBI data and provide a detailed report as a single, valid JSON object:
+Brain Anomaly: {anomaly}%
+Risk Level: {risk}
+Forecast: {forecast}
+"""
+
+prompt = ChatPromptTemplate.from_template(prompt_template).partial(
+    # Pass the schema instructions as a string for the LLM to read
+    pydantic_schema=TBIReport.schema_json(indent=2)
+)
+
+# The chain is defined as: Prompt | LLM | Parser (Returns JSON text string)
+chain = prompt | llm | parser
 
 # --- Web App ---
-
-# Assuming imports for segment, forecast, and report.py are correct
-# ... (rest of the app.py file)
 
 st.set_page_config(page_title="TBI Sentinel", layout="centered")
 st.title("TBI Sentinel: Field TBI Analysis")
 
-# --- FILE UPLOAD AND PROCESSING ---
-# Assuming temporary file handling exists here...
+scan = st.file_uploader("Upload Brain MRI (JPG/PNG)", type=["jpg", "png"])
+vitals = st.file_uploader("Upload Vitals Data (CSV)", type="csv")
 
-scan = st.file_uploader("Upload Brain MRI", type=["jpg", "png"])
-vitals = st.file_uploader("Upload Vitals CSV", type="csv")
 if scan and vitals:
-    # Save files to temp for processing (assuming the helper functions handle this)
-    with open("temp_scan.jpg", "wb") as f: f.write(scan.getbuffer())
-    with open("temp_vitals.csv", "wb") as f: f.write(vitals.getbuffer())
+    # 1. Save files to temp for processing
+    temp_scan_path = "temp_scan.jpg"
+    temp_vitals_path = "temp_vitals.csv"
     
-    st.image("temp_scan.jpg", caption="Uploaded MRI Scan", width=300)
+    with open(temp_scan_path, "wb") as f: 
+        f.write(scan.getbuffer())
+    with open(temp_vitals_path, "wb") as f: 
+        f.write(vitals.getbuffer())
     
-    # Run AI
-    anomaly = segment_image("temp_scan.jpg")
-    # Note: forecast_vitals must now return 'risk_score' as defined in the next step
-    forecast_data = forecast_vitals("temp_vitals.csv", anomaly['volume_percent']) 
+    st.image(temp_scan_path, caption="Uploaded MRI Scan", use_column_width=True)
     
-    # Generate report
+    # 2. Run AI Analysis
+    st.info("Running image segmentation and vital forecasting...")
+    anomaly = segment_image(temp_scan_path)
+    forecast_data = forecast_vitals(temp_vitals_path, anomaly['volume_percent']) 
+    
+    # 3. Generate Report using LLM Chain
     st.info("Generating Structured Clinical Report...")
     try:
-        report: TBIReport = chain.invoke({
+        # report_text will be the raw JSON string from the LLM
+        report_text = chain.invoke({
             "anomaly": anomaly['volume_percent'],
             "risk": forecast_data['risk'],
             "forecast": forecast_data['forecast']
@@ -69,15 +81,14 @@ if scan and vitals:
         st.success("Analysis Complete!")
         st.write("### AI Structured Clinical Report")
         
-        # Display structured data nicely using the correct Pydantic method
-        # This will now definitely be a TBIReport object thanks to with_structured_output
-        st.json(report.model_dump())
+        # CRITICAL: Use st.json() directly on the raw text string for reliable display.
+        st.json(report_text)
         
-        st.image("forecast.png", caption="48-Hour Heart Rate Forecast")
+        # 4. Display Forecast Image
+        if os.path.exists("forecast.png"):
+            st.image("forecast.png", caption="48-Hour Heart Rate Forecast")
         
     except Exception as e:
-        st.error(f"Error generating report: {e}")
-        st.error("This usually means the LLM failed to produce valid JSON or the Agent Router failed to connect properly.")
-        st.info("Please check your Streamlit secrets again (API Key and OPENAI_API_BASE).")
-
-# --- END OF WEB APP ---
+        # Inform the user about the failure
+        st.error(f"An error occurred during report generation: {e}")
+        st.warning("Please verify your Streamlit secrets (`OPENAI_API_KEY` and `OPENAI_API_BASE`) are set correctly for Agent Router.")

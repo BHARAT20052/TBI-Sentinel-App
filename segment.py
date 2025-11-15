@@ -1,8 +1,18 @@
-from transformers import pipeline
-import numpy as np
+import random
 
-def segment_image(path):
-    segmenter = pipeline("image-segmentation", model="openmmlab/upernet-convnext-small")
-    result = segmenter(path)
-    volume = np.random.uniform(5, 25)  # Simulated TBI volume
-    return {"anomaly": result, "volume_percent": round(volume, 2)}
+def segment_image(image_path: str) -> dict:
+    """
+    Mocks a machine learning model performing brain MRI segmentation.
+    
+    In a real application, this would run a deep learning model (e.g., using 
+    TensorFlow or PyTorch) to find and measure anomalies like hemorrhage or edema.
+    """
+    print(f"Simulating segmentation for {image_path}...")
+    
+    # Simulate a plausible volume percentage for an anomaly (e.g., 0.5% to 5.0%)
+    volume_percent = round(random.uniform(0.5, 5.0), 2)
+    
+    return {
+        "volume_percent": volume_percent,
+        "anomalies_detected": volume_percent > 1.0
+    }
