@@ -1,0 +1,8 @@
+streamlit
+pandas
+prophet
+matplotlib
+transformers
+langchain-openai
+python-dotenv
+numpy
