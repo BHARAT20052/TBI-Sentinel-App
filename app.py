@@ -1,0 +1,58 @@
+# app.py (Modified)
+from dotenv import load_dotenv
+load_dotenv()
+import streamlit as st
+from segment import segment_image
+from forecast import forecast_vitals
+from report import TBIReport # <-- NEW: Import the Pydantic model
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSON parser
+import os
+
+# --- AI MODEL (Updated for Structured Output) ---
+llm = ChatOpenAI(
+    model="gpt-4-turbo-preview", # <-- Recommend a stronger model
+    api_key=os.getenv("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"),
+    temperature=0.0 # Lower temp for consistent structured output
+)
+
+parser = JsonOutputParser(pydantic_object=TBIReport) # Initialize Pydantic parser
+
+prompt = ChatPromptTemplate.from_messages( # Use a system role for robustness
+    [
+        ("system", "You are a specialized Military Medical AI assistant. Your task is to analyze the provided TBI data and generate a structured clinical report in JSON format, strictly following the provided schema. {format_instructions}"),
+        ("human", "Analyze the following TBI data and provide a detailed report:\nBrain Anomaly: {anomaly}%\nRisk Level: {risk}\nForecast: {forecast}"),
+    ]
+).partial(format_instructions=parser.get_format_instructions()) # Pass format instructions
+
+chain = prompt | llm | parser # Chain now produces a structured Python object
+
+# --- Web App ---
+# ... (rest of the app.py file)
+# ...
+scan = st.file_uploader("Upload Brain MRI", type=["jpg", "png"])
+vitals = st.file_uploader("Upload Vitals CSV", type="csv")
+if scan and vitals:
+    # ... (file saving) ...
+    
+    # Run AI
+    anomaly = segment_image("temp_scan.jpg")
+    # Note: forecast_vitals must now return 'risk_score' as defined in the next step
+    forecast_data = forecast_vitals("temp_vitals.csv", anomaly['volume_percent']) 
+    
+    # Generate report
+    st.info("Generating Structured Clinical Report...")
+    report_object = chain.invoke({
+        "anomaly": anomaly['volume_percent'],
+        "risk": forecast_data['risk_score'],
+        "forecast": forecast_data['forecast']
+    })
+    
+    st.success("Analysis Complete!")
+    st.write("### AI Structured Clinical Report")
+    
+    # Display structured data nicely
+    st.json(report_object.dict() if hasattr(report_object, 'dict') else report_object)
+    
+    st.image("forecast.png", caption="48-Hour Heart Rate Forecast")
