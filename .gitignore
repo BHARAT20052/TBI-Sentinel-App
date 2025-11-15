@@ -1,0 +1,12 @@
+# SECRETS AND ENVIRONMENT FILES
+.env
+# Note: Your app.py also has a hardcoded key, which is handled in Step 3.
+
+# STREAMLIT RUNTIME AND TEMPORARY FILES
+temp_scan.jpg
+temp_vitals.csv
+forecast.png
+
+# PYTHON CACHE AND COMPILED FILES
+__pycache__/
+*.pyc
