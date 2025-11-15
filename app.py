@@ -44,16 +44,16 @@ if scan and vitals:
     
     # Generate report
     st.info("Generating Structured Clinical Report...")
-    report_object = chain.invoke({
+    report = chain.invoke({
         "anomaly": anomaly['volume_percent'],
-        "risk": forecast_data['risk_score'],
+        "risk": forecast_data['risk'],
         "forecast": forecast_data['forecast']
-    })
+        })
     
     st.success("Analysis Complete!")
     st.write("### AI Structured Clinical Report")
     
     # Display structured data nicely
-    st.json(report_object.dict() if hasattr(report_object, 'dict') else report_object)
+    st.json(report.dict() if hasattr(report, 'dict') else report)
     
     st.image("forecast.png", caption="48-Hour Heart Rate Forecast")
