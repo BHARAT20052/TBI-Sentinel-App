@@ -9,14 +9,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSON parser
 import os
-
-# app.py (Around line 9)
-
-# --- AI MODEL (Updated for 2025 LangChain) ---
-llm = ChatOpenAI(
-    model="google/gemini-2.5-pro",
-    api_key=os.getenv("OPENAI_API_KEY"),
-    openai_api_base="https://openrouter.ai/api/v1" 
+llm = ChatOpenAI(   
+    model="mistralai/mistral-7b-instruct", 
+    api_key=os.getenv("OPENAI_API_KEY") 
 )
 parser = JsonOutputParser(pydantic_object=TBIReport) # Initialize Pydantic parser
 
