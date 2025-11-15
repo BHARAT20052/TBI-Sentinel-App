@@ -11,10 +11,11 @@ from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSO
 import os
 
 # --- AI MODEL (Updated for Structured Output) ---
+# --- AI MODEL (Updated for 2025 LangChain) ---
 llm = ChatOpenAI(
-    model="gpt-4-turbo-preview", # <-- Recommend a stronger model
-    api_key=os.getenv("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"),
-    temperature=0.0 # Lower temp for consistent structured output
+    model="gpt-3.5-turbo",
+    # FIX: Use the secure environment variable name
+    api_key=os.getenv("OPENAI_API_KEY") 
 )
 
 parser = JsonOutputParser(pydantic_object=TBIReport) # Initialize Pydantic parser
