@@ -10,9 +10,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSON parser
 import os
 
+# app.py (Around line 9)
+
+# --- AI MODEL (Updated for 2025 LangChain) ---
 llm = ChatOpenAI(
-    # FINAL FIX: Swapping to a reliable OpenRouter model to resolve APIStatusError
-    model="mistralai/mistral-7b-instruct-v0.2",
+    model="google/gemini-2.5-pro",
     api_key=os.getenv("OPENAI_API_KEY"),
     openai_api_base="https://openrouter.ai/api/v1" 
 )
