@@ -6,3 +6,4 @@ transformers
 langchain-openai
 python-dotenv
 numpy
+torch 
