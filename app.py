@@ -12,12 +12,14 @@ import os
 
 # --- AI MODEL (Updated for Structured Output) ---
 # --- AI MODEL (Updated for 2025 LangChain) ---
+# app.py (Around line 9)
+
+# --- AI MODEL (Updated for 2025 LangChain) ---
 llm = ChatOpenAI(
     model="gpt-3.5-turbo",
-    # FIX: Use the secure environment variable name
+    # FINAL FIX: Change the argument to the correct environment variable name
     api_key=os.getenv("OPENAI_API_KEY") 
 )
-
 parser = JsonOutputParser(pydantic_object=TBIReport) # Initialize Pydantic parser
 
 prompt = ChatPromptTemplate.from_messages( # Use a system role for robustness
