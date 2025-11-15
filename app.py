@@ -10,20 +10,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser # <-- CHANGE: Use JSON parser
 import os
 
-# --- AI MODEL (Updated for Structured Output) ---
-# --- AI MODEL (Updated for 2025 LangChain) ---
-# app.py (Around line 9)
-
-# --- AI MODEL (Updated for 2025 LangChain) ---
-# app.py (Around line 9)
-
-# --- AI MODEL (Updated for 2025 LangChain) ---
 llm = ChatOpenAI(
-    # NOTE: Using gpt-3.5-turbo here may still point to OpenAI, 
-    # but OpenRouter often proxies it if configured correctly.
-    model="gpt-3.5-turbo",
+    # FINAL FIX: Change model name to OpenRouter's preferred format
+    model="openai/gpt-3.5-turbo",
     api_key=os.getenv("OPENAI_API_KEY"),
-    # CRITICAL FIX: Direct the request to OpenRouter's server
     openai_api_base="https://openrouter.ai/api/v1" 
 )
 parser = JsonOutputParser(pydantic_object=TBIReport) # Initialize Pydantic parser
