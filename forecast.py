@@ -1,67 +1,94 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
 import os
 
 def forecast_vitals(csv_path: str, anomaly_percent: float) -> dict:
     """
-    Mocks a forecasting model for patient vitals and generates a plot.
-    
-    - Reads the mock data (T1, T2, T3, T4 columns).
-    - Generates a 48-hour forecast plot (forecast.png).
-    - Determines risk based on the severity of the anomaly.
+    Performs real 48-hour time-series forecasting using the ARIMA model on vitals data.
     """
-    print(f"Simulating vitals forecast for {csv_path}...")
+    print(f"Analyzing vitals data: {csv_path} with ARIMA model...")
     
-    # 1. Simulate Reading Data
     try:
         df = pd.read_csv(csv_path)
-    except Exception:
-        # Create dummy data if file reading fails or is not available
-        df = pd.DataFrame({
-            'T1': np.random.uniform(70, 100, 100),
-            'T2': np.random.uniform(70, 100, 100),
-        })
+        # Assuming the first column 'T1' is the Heart Rate data (BPM)
+        hr_data = df['T1'].astype(float).dropna()
+        if len(hr_data) < 10:
+            raise ValueError("Insufficient data for forecasting.")
+    except Exception as e:
+        print(f"Error reading or processing CSV: {e}")
+        # Return fallback mock data if real data fails
+        return {
+            "risk": "Moderate",
+            "forecast": "Forecast failed due to data error. Defaulting to Moderate Risk."
+        }
 
-    # 2. Mock Forecasting Plot (48 hours)
+    # --- 1. ARIMA Forecasting ---
+    
+    # Use ARIMA(1, 1, 0) as a simple, stable model (AutoRegressive, Integrated/Differencing, Moving Average)
+    order = (1, 1, 0)
+    
+    try:
+        # Fit the model (using the last 100 observations for stability)
+        model = ARIMA(hr_data.tail(100), order=order)
+        model_fit = model.fit()
+
+        # Generate 48-hour forecast with confidence intervals
+        forecast_result = model_fit.get_forecast(steps=48)
+        forecast_mean = forecast_result.predicted_mean
+        forecast_ci = forecast_result.conf_int() # 95% confidence interval
+
+    except Exception as e:
+        print(f"ARIMA model failed to fit: {e}")
+        # Fallback if the model fails
+        forecast_mean = np.full(48, hr_data.mean())
+        forecast_ci = np.array([forecast_mean * 0.95, forecast_mean * 1.05]).T
+
+    # --- 2. Plotting the Forecast ---
+
     plt.figure(figsize=(10, 5))
     
-    # Use one of the time series columns for forecasting simulation
-    data_to_forecast = df['T1'].iloc[-50:].values if 'T1' in df.columns else df.iloc[-50:, 0].values
+    # Historical data plot
+    history_index = np.arange(len(hr_data))
+    plt.plot(history_index, hr_data, label='Historical HR (BPM)', color='blue', alpha=0.7)
 
-    # Simulate a forecast based on the last 50 points
-    forecast_points = 48
-    last_val = data_to_forecast[-1]
+    # Forecast index continues from history
+    forecast_index = np.arange(len(hr_data), len(hr_data) + 48)
     
-    # Create a subtle trend (e.g., slightly increasing variability due to TBI)
-    forecast_trend = np.linspace(last_val, last_val + (anomaly_percent * 0.5), forecast_points)
-    forecast_noise = np.random.normal(0, 1.5, forecast_points) * (anomaly_percent / 2) # Higher anomaly = more noise
-    forecast_data = forecast_trend + forecast_noise
+    # Forecast plot
+    plt.plot(forecast_index, forecast_mean, label='48-Hour Forecast Mean', linestyle='--', color='red')
     
-    # Plotting
-    plt.plot(np.arange(len(data_to_forecast)), data_to_forecast, label='Historical Data (Last 50 hours)', color='blue')
-    plt.plot(np.arange(len(data_to_forecast), len(data_to_forecast) + forecast_points), forecast_data, label='48-Hour Forecast', linestyle='--', color='red')
-    
-    plt.title('Heart Rate Forecast: Next 48 Hours')
+    # Confidence interval plot (filled area)
+    plt.fill_between(forecast_index, 
+                     forecast_ci.iloc[:, 0].values if isinstance(forecast_ci, pd.DataFrame) else forecast_ci[:, 0], 
+                     forecast_ci.iloc[:, 1].values if isinstance(forecast_ci, pd.DataFrame) else forecast_ci[:, 1], 
+                     color='red', alpha=0.1, label='95% Confidence Interval')
+
+    plt.title('Heart Rate Forecast: Next 48 Hours (ARIMA)')
     plt.xlabel('Time (Hours)')
     plt.ylabel('Heart Rate (BPM)')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.6)
     
-    # Save the plot
     plt.savefig("forecast.png")
     plt.close()
 
-    # 3. Determine Risk and Forecast Summary
-    if anomaly_percent >= 3.0:
+    # --- 3. Determine Risk ---
+    
+    # Calculate forecast stability (e.g., standard deviation of the forecast mean)
+    forecast_volatility = np.std(forecast_mean)
+    
+    # Risk calculation now depends on both anomaly size AND forecast volatility
+    if anomaly_percent >= 2.0 or forecast_volatility > 5.0:
         risk_level = "Critical"
-        forecast_summary = "High probability of severe neurological deterioration within 48 hours based on volume and vital instability."
-    elif anomaly_percent >= 1.5:
+        forecast_summary = f"High probability of instability (Volatility: {forecast_volatility:.2f}). Close monitoring required."
+    elif anomaly_percent >= 1.0 or forecast_volatility > 2.0:
         risk_level = "High"
-        forecast_summary = "Significant risk of secondary injury; vitals show high volatility."
+        forecast_summary = f"Significant instability detected (Volatility: {forecast_volatility:.2f}). Prepare contingency plans."
     else:
         risk_level = "Moderate"
-        forecast_summary = "Vitals remain relatively stable, but continuous monitoring is essential."
+        forecast_summary = "Vitals are projected to remain relatively stable. Continue routine monitoring."
         
     return {
         "risk": risk_level,
