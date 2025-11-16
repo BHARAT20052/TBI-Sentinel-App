@@ -16,7 +16,7 @@ load_dotenv()
 
 llm = ChatOpenAI(
     # Using the supported Claude Sonnet model from your Agent Router list.
-    model="claude-sonnet-4-5-20250929", 
+    model="claude-haiku-4-5-20251001", 
     api_key=os.getenv("OPENAI_API_KEY"),
     # CRITICAL FIX: Ensure the custom endpoint URL is explicitly set here
     openai_api_base=os.getenv("OPENAI_API_BASE") 
